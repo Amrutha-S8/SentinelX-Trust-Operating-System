@@ -15,6 +15,10 @@ export const Navbar: React.FC = () => {
     { name: 'Simulator', href: '/simulator', icon: '🎯' },
   ];
 
+  // Admin-only nav item
+  const adminNav = user?.role === 'admin'
+    ? [{ name: 'Admin', href: '/admin', icon: '⚙️' }]
+    : [];
   const handleLogout = async () => {
     await logout();
     setIsProfileOpen(false);
@@ -36,7 +40,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {navigation.map((item) => (
+              {[...navigation, ...adminNav].map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -85,6 +89,24 @@ export const Navbar: React.FC = () => {
                     <div className="text-gray-500">{user?.email}</div>
                   </div>
                   
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    👤 My Profile
+                  </Link>
+
+                  {user?.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      ⚙️ Admin Console
+                    </Link>
+                  )}
+
                   <button
                     onClick={handleLogout}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -101,7 +123,7 @@ export const Navbar: React.FC = () => {
       {/* Mobile Navigation */}
       <div className="sm:hidden">
         <div className="pt-2 pb-3 space-y-1">
-          {navigation.map((item) => (
+          {[...navigation, ...adminNav].map((item) => (
             <Link
               key={item.name}
               to={item.href}

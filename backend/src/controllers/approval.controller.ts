@@ -143,8 +143,57 @@ class ApprovalController {
     }
   }
 
-  async escalateRequest(req: Request, res: Response, next: NextFunction) {
+  async delegateRequest(req: Request, res: Response, next: NextFunction) {
     try {
+      const user = (req as any).user;
+      const { requestId } = req.params;
+      const { delegateToUserId, reason } = req.body;
+
+      if (!delegateToUserId) {
+        return res.status(400).json({ error: 'delegateToUserId is required' });
+      }
+
+      const request = await ApprovalRequest.findById(requestId);
+      if (!request) {
+        return res.status(404).json({ error: 'Approval request not found' });
+      }
+
+      // Verify requester is an existing approver or admin
+      const isApprover = request.approvers?.some(
+        (a: any) => a.userId?.toString() === user._id.toString()
+      );
+      if (!isApprover && user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only existing approvers can delegate' });
+      }
+
+      // Add delegate as new approver
+      if (!request.approvers) request.approvers = [];
+      request.approvers.push({
+        userId: new mongoose.Types.ObjectId(delegateToUserId),
+        status: 'pending',
+        delegatedBy: user._id,
+        delegatedReason: reason,
+        addedAt: new Date(),
+      });
+
+      // Log the delegation
+      if (!request.escalations) request.escalations = [];
+      request.escalations.push({
+        level: 1,
+        escalatedTo: [new mongoose.Types.ObjectId(delegateToUserId)],
+        reason: `Delegated by ${user.email}: ${reason}`,
+        escalatedAt: new Date(),
+      });
+
+      await (request as any).save();
+
+      res.json({ message: 'Request delegated successfully', request });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async escalateRequest(req: Request, res: Response, next: NextFunction) {    try {
       const { requestId } = req.params;
       const { level, escalatedTo, reason } = req.body;
 

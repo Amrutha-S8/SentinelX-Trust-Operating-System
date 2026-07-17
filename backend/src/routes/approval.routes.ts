@@ -14,6 +14,7 @@ router.get('/requests/:requestId', authenticate, approvalController.getRequestDe
 router.post('/requests/:requestId/approve', authenticate, approvalController.approveRequest);
 router.post('/requests/:requestId/reject', authenticate, approvalController.rejectRequest);
 router.post('/requests/:requestId/break-glass', authenticate, approvalController.useBreakGlass);
+router.post('/requests/:requestId/delegate', authenticate, approvalController.delegateRequest);
 
 // Escalations
 router.post('/requests/:requestId/escalate', authenticate, approvalController.escalateRequest);

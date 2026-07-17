@@ -61,8 +61,23 @@ export const authAPI = {
   logout: () => apiClient.post('/auth/logout'),
   setupTOTP: () => apiClient.post('/auth/totp/setup'),
   verifyTOTPSetup: (token: string) => apiClient.post('/auth/totp/verify-setup', { token }),
+  disableTOTP: () => apiClient.post('/auth/totp/disable'),
   getSessions: () => apiClient.get('/auth/sessions'),
+  revokeSession: (sessionId: string) => apiClient.delete(`/auth/sessions/${sessionId}`),
+  revokeAllSessions: () => apiClient.delete('/auth/sessions'),
   getDevices: () => apiClient.get('/auth/devices'),
+  trustDevice: () => apiClient.post('/auth/devices/trust'),
+  removeDevice: (deviceId: string) => apiClient.delete(`/auth/devices/${deviceId}`),
+  getBackupCodes: () => apiClient.get('/auth/backup-codes'),
+  generateBackupCodes: () => apiClient.post('/auth/backup-codes/generate'),
+  verifyBackupCode: (email: string, code: string) =>
+    apiClient.post('/auth/backup-codes/verify', { email, code }),
+  passkeyRegisterOptions: () => apiClient.post('/auth/passkey/register-options'),
+  passkeyRegisterVerify: (data: any) => apiClient.post('/auth/passkey/register-verify', data),
+  passkeyLoginOptions: (email?: string) =>
+    apiClient.post('/auth/passkey/login-options', { email }),
+  passkeyLoginVerify: (data: any) => apiClient.post('/auth/passkey/login-verify', data),
+  deletePasskey: (credentialId: string) => apiClient.delete(`/auth/passkey/${credentialId}`),
 };
 
 // Trust API
@@ -86,6 +101,8 @@ export const approvalAPI = {
     apiClient.post(`/approvals/requests/${requestId}/reject`, { comments }),
   breakGlass: (requestId: string, reason: string) =>
     apiClient.post(`/approvals/requests/${requestId}/break-glass`, { reason }),
+  delegate: (requestId: string, delegateToUserId: string, reason: string) =>
+    apiClient.post(`/approvals/requests/${requestId}/delegate`, { delegateToUserId, reason }),
   getStats: () => apiClient.get('/approvals/stats'),
 };
 
@@ -114,6 +131,12 @@ export const policyAPI = {
 // Admin API
 export const adminAPI = {
   getUsers: (params?: any) => apiClient.get('/admin/users', { params }),
+  getUserDetails: (userId: string) => apiClient.get(`/admin/users/${userId}`),
+  updateUserRole: (userId: string, role: string) =>
+    apiClient.patch(`/admin/users/${userId}/role`, { role }),
+  updateUserStatus: (userId: string, status: string) =>
+    apiClient.patch(`/admin/users/${userId}/status`, { status }),
+  deleteUser: (userId: string) => apiClient.delete(`/admin/users/${userId}`),
   getSystemHealth: () => apiClient.get('/admin/health'),
   getMetrics: () => apiClient.get('/admin/metrics'),
 };
@@ -132,6 +155,10 @@ export const simulatorAPI = {
     apiClient.post('/simulator/attacks/credential-stuffing', { email, attempts }),
   simulateMFAFatigue: (pushNotifications: number) =>
     apiClient.post('/simulator/attacks/mfa-fatigue', { pushNotifications }),
+  simulatePhishing: (phishingIndicators: string[]) =>
+    apiClient.post('/simulator/attacks/phishing', { phishingIndicators }),
+  simulateSessionHijack: (newIpAddress: string, newUserAgent: string) =>
+    apiClient.post('/simulator/attacks/session-hijack', { newIpAddress, newUserAgent }),
   getDetectionRate: () => apiClient.get('/simulator/metrics/detection-rate'),
   getScenarioTemplates: () => apiClient.get('/simulator/scenarios/templates'),
 };

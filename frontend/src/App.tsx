@@ -7,6 +7,8 @@ import { ApprovalCenter } from './pages/ApprovalCenter';
 import { TrustHistory } from './pages/TrustHistory';
 import { AuditLog } from './pages/AuditLog';
 import { AttackSimulator } from './pages/AttackSimulator';
+import { AdminConsole } from './pages/AdminConsole';
+import { Profile } from './pages/Profile';
 import { Navbar } from './components/Navbar';
 import { LoadingSpinner } from './components/LoadingSpinner';
 
@@ -70,6 +72,22 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <AttackSimulator />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminConsole />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

@@ -554,25 +554,211 @@ class AuthController {
     }
   }
 
-  // Placeholder methods for remaining auth features
+  // ── WebAuthn / Passkey ──────────────────────────────────────────────────────
   async passkeyRegisterOptions(req: Request, res: Response, next: NextFunction) {
-    res.status(501).json({ error: 'Passkey registration not yet implemented' });
+    try {
+      const user = (req as any).user;
+      const dbUser = await User.findById(user._id);
+      if (!dbUser) return res.status(404).json({ error: 'User not found' });
+
+      const challenge = crypto.randomBytes(32).toString('base64url');
+      await redisClient.setex(`webauthn:reg:${user._id}`, 300, JSON.stringify({ challenge }));
+
+      res.json({
+        challenge,
+        rp: {
+          name: 'SentinelX Trust OS',
+          id: process.env.WEBAUTHN_RP_ID || 'localhost',
+        },
+        user: {
+          id: Buffer.from(user._id.toString()).toString('base64url'),
+          name: dbUser.email,
+          displayName: `${dbUser.firstName} ${dbUser.lastName}`,
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },
+          { type: 'public-key', alg: -257 },
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'preferred',
+        },
+        timeout: 60000,
+        attestation: 'none',
+        excludeCredentials: ((dbUser as any).passkeys || []).map((pk: any) => ({
+          id: pk.credentialId,
+          type: 'public-key',
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async passkeyRegisterVerify(req: Request, res: Response, next: NextFunction) {
-    res.status(501).json({ error: 'Passkey verification not yet implemented' });
+    try {
+      const user = (req as any).user;
+      const { id, rawId, response: credResp, type } = req.body;
+
+      if (type !== 'public-key') return res.status(400).json({ error: 'Invalid credential type' });
+
+      const stored = await redisClient.get(`webauthn:reg:${user._id}`);
+      if (!stored) return res.status(400).json({ error: 'Registration session expired' });
+      const { challenge } = JSON.parse(stored);
+
+      const clientData = JSON.parse(
+        Buffer.from(credResp.clientDataJSON).toString('utf-8')
+      );
+
+      if (clientData.type !== 'webauthn.create')
+        return res.status(400).json({ error: 'Invalid ceremony type' });
+
+      if (clientData.challenge !== challenge)
+        return res.status(400).json({ error: 'Challenge mismatch' });
+
+      const expectedOrigin = process.env.WEBAUTHN_ORIGIN || 'http://localhost:5173';
+      if (clientData.origin !== expectedOrigin)
+        return res.status(400).json({ error: 'Origin mismatch' });
+
+      const dbUser = await User.findById(user._id);
+      if (dbUser) {
+        if (!(dbUser as any).passkeys) (dbUser as any).passkeys = [];
+        (dbUser as any).passkeys.push({
+          credentialId: id,
+          rawId,
+          publicKey: credResp.attestationObject,
+          counter: 0,
+          createdAt: new Date(),
+          deviceType: 'platform',
+        });
+        await dbUser.save();
+      }
+
+      await redisClient.del(`webauthn:reg:${user._id}`);
+
+      await AuditService.log({
+        userId: user._id,
+        eventType: 'auth.passkey.registered',
+        eventCategory: 'auth',
+        severity: 'info',
+        action: 'register-passkey',
+        resource: 'user',
+        outcome: 'success',
+        contextData: { ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || 'unknown' },
+      });
+
+      res.json({ message: 'Passkey registered successfully', credentialId: id });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async passkeyLoginOptions(req: Request, res: Response, next: NextFunction) {
-    res.status(501).json({ error: 'Passkey login not yet implemented' });
+    try {
+      const { email } = req.body;
+      const challenge = crypto.randomBytes(32).toString('base64url');
+      await redisClient.setex(`webauthn:auth:${challenge}`, 300, JSON.stringify({ challenge, email }));
+
+      let allowCredentials: any[] = [];
+      if (email) {
+        const user = await User.findOne({ email });
+        if (user && (user as any).passkeys?.length) {
+          allowCredentials = (user as any).passkeys.map((pk: any) => ({
+            id: pk.credentialId,
+            type: 'public-key',
+          }));
+        }
+      }
+
+      res.json({
+        challenge,
+        timeout: 60000,
+        rpId: process.env.WEBAUTHN_RP_ID || 'localhost',
+        allowCredentials,
+        userVerification: 'required',
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async passkeyLoginVerify(req: Request, res: Response, next: NextFunction) {
-    res.status(501).json({ error: 'Passkey login not yet implemented' });
+    try {
+      const { id, response: credResp, type, challenge } = req.body;
+
+      if (type !== 'public-key') return res.status(400).json({ error: 'Invalid credential type' });
+
+      const stored = await redisClient.get(`webauthn:auth:${challenge}`);
+      if (!stored) return res.status(400).json({ error: 'Authentication session expired' });
+
+      const clientData = JSON.parse(
+        Buffer.from(credResp.clientDataJSON).toString('utf-8')
+      );
+
+      if (clientData.type !== 'webauthn.get')
+        return res.status(400).json({ error: 'Invalid ceremony type' });
+
+      const expectedOrigin = process.env.WEBAUTHN_ORIGIN || 'http://localhost:5173';
+      if (clientData.origin !== expectedOrigin)
+        return res.status(400).json({ error: 'Origin mismatch' });
+
+      const user = await User.findOne({ 'passkeys.credentialId': id });
+      if (!user) return res.status(401).json({ error: 'Credential not found' });
+
+      const sessionId = crypto.randomBytes(16).toString('hex');
+      const tokens = generateTokenPair({
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        sessionId,
+      });
+
+      await redisClient.setex(
+        `session:${sessionId}`,
+        7 * 24 * 60 * 60,
+        JSON.stringify({ userId: user._id, createdAt: Date.now() })
+      );
+      await redisClient.del(`webauthn:auth:${challenge}`);
+
+      await AuditService.log({
+        userId: user._id,
+        sessionId,
+        eventType: 'auth.passkey.login',
+        eventCategory: 'auth',
+        severity: 'info',
+        action: 'login',
+        resource: 'user',
+        outcome: 'success',
+        contextData: { ipAddress: req.ip || 'unknown', userAgent: req.headers['user-agent'] || 'unknown' },
+        securityContext: { authMethod: 'passkey' },
+      });
+
+      res.json({
+        message: 'Authenticated via passkey',
+        user: { id: user._id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
+        tokens,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async deletePasskey(req: Request, res: Response, next: NextFunction) {
-    res.status(501).json({ error: 'Delete passkey not yet implemented' });
+    try {
+      const user = (req as any).user;
+      const { credentialId } = req.params;
+      const dbUser = await User.findById(user._id);
+      if (dbUser && (dbUser as any).passkeys) {
+        (dbUser as any).passkeys = (dbUser as any).passkeys.filter(
+          (pk: any) => pk.credentialId !== credentialId
+        );
+        await dbUser.save();
+      }
+      res.json({ message: 'Passkey removed' });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async generateQRCode(req: Request, res: Response, next: NextFunction) {

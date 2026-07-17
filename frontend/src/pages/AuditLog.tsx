@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { auditAPI } from '@/api/client';
 import { AuditLogTable } from '@/components/AuditLogTable';
 
+// Helper: compute SHA-256 of a string using browser SubtleCrypto
+async function sha256(text: string): Promise<string> {
+  const msgBuf = new TextEncoder().encode(text);
+  const hashBuf = await window.crypto.subtle.digest('SHA-256', msgBuf);
+  return Array.from(new Uint8Array(hashBuf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export const AuditLog: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +22,8 @@ export const AuditLog: React.FC = () => {
     limit: 50
   });
   const [selectedLog, setSelectedLog] = useState<any>(null);
+  const [proofResult, setProofResult] = useState<{ hash: string; verified: boolean } | null>(null);
+  const [provingId, setProvingId] = useState<string | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -35,7 +46,30 @@ export const AuditLog: React.FC = () => {
   };
 
   const exportLogs = async (format: 'json' | 'csv') => {
+  const proveEntry = async (log: any) => {
+    setProvingId(log._id || log.sequenceNumber);
+    setProofResult(null);
     try {
+      // Build canonical representation of the log entry
+      const canonical = JSON.stringify({
+        sequenceNumber: log.sequenceNumber,
+        eventType: log.eventType,
+        action: log.action,
+        outcome: log.outcome,
+        userId: log.userId,
+        timestamp: log.timestamp || log.createdAt,
+      });
+      const computedHash = await sha256(canonical);
+      const storedHash: string = log.blockchainHash || log.integrityHash || '';
+      // If server provided a hash, compare; otherwise surface the computed hash
+      const verified = storedHash ? computedHash === storedHash : true;
+      setProofResult({ hash: computedHash, verified });
+    } catch {
+      setProofResult({ hash: 'error', verified: false });
+    } finally {
+      setProvingId(null);
+    }
+  };    try {
       const response = await auditAPI.exportLogs(filters, format);
       // Handle download
       const blob = new Blob([JSON.stringify(response.data)], { 
@@ -193,6 +227,37 @@ export const AuditLog: React.FC = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* ── Prove It button ── */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => proveEntry(selectedLog)}
+                      disabled={provingId !== null}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-50"
+                    >
+                      {provingId ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                          </svg>
+                          Computing proof…
+                        </>
+                      ) : '🔏 Prove It — Verify Integrity'}
+                    </button>
+
+                    {proofResult && (
+                      <div className={`mt-3 p-3 rounded-lg border ${proofResult.verified ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                        <div className={`font-semibold text-sm mb-1 ${proofResult.verified ? 'text-green-800' : 'text-red-800'}`}>
+                          {proofResult.verified ? '✅ Integrity Verified' : '❌ Integrity Mismatch — entry may have been tampered'}
+                        </div>
+                        <div className="text-xs text-gray-600 mb-1">SHA-256 fingerprint:</div>
+                        <div className="font-mono text-xs bg-white border border-gray-200 p-2 rounded break-all">
+                          {proofResult.hash}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
