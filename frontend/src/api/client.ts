@@ -61,23 +61,8 @@ export const authAPI = {
   logout: () => apiClient.post('/auth/logout'),
   setupTOTP: () => apiClient.post('/auth/totp/setup'),
   verifyTOTPSetup: (token: string) => apiClient.post('/auth/totp/verify-setup', { token }),
-  disableTOTP: () => apiClient.post('/auth/totp/disable'),
   getSessions: () => apiClient.get('/auth/sessions'),
-  revokeSession: (sessionId: string) => apiClient.delete(`/auth/sessions/${sessionId}`),
-  revokeAllSessions: () => apiClient.delete('/auth/sessions'),
   getDevices: () => apiClient.get('/auth/devices'),
-  trustDevice: () => apiClient.post('/auth/devices/trust'),
-  removeDevice: (deviceId: string) => apiClient.delete(`/auth/devices/${deviceId}`),
-  getBackupCodes: () => apiClient.get('/auth/backup-codes'),
-  generateBackupCodes: () => apiClient.post('/auth/backup-codes/generate'),
-  verifyBackupCode: (email: string, code: string) =>
-    apiClient.post('/auth/backup-codes/verify', { email, code }),
-  passkeyRegisterOptions: () => apiClient.post('/auth/passkey/register-options'),
-  passkeyRegisterVerify: (data: any) => apiClient.post('/auth/passkey/register-verify', data),
-  passkeyLoginOptions: (email?: string) =>
-    apiClient.post('/auth/passkey/login-options', { email }),
-  passkeyLoginVerify: (data: any) => apiClient.post('/auth/passkey/login-verify', data),
-  deletePasskey: (credentialId: string) => apiClient.delete(`/auth/passkey/${credentialId}`),
 };
 
 // Trust API

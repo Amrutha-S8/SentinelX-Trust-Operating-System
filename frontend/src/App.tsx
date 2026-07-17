@@ -14,83 +14,24 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
+  if (loading) return <LoadingSpinner />;
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
 const AppRoutes: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />}
-      />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/approvals"
-        element={
-          <ProtectedRoute>
-            <ApprovalCenter />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/trust-history"
-        element={
-          <ProtectedRoute>
-            <TrustHistory />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/audit"
-        element={
-          <ProtectedRoute>
-            <AuditLog />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/simulator"
-        element={
-          <ProtectedRoute>
-            <AttackSimulator />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminConsole />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/dashboard"    element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/approvals"    element={<ProtectedRoute><ApprovalCenter /></ProtectedRoute>} />
+      <Route path="/trust-history" element={<ProtectedRoute><TrustHistory /></ProtectedRoute>} />
+      <Route path="/audit"        element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
+      <Route path="/simulator"    element={<ProtectedRoute><AttackSimulator /></ProtectedRoute>} />
+      <Route path="/admin"        element={<ProtectedRoute><AdminConsole /></ProtectedRoute>} />
+      <Route path="/profile"      element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
@@ -99,7 +40,6 @@ const AppRoutes: React.FC = () => {
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
-
   return (
     <div className="min-h-screen bg-gray-50">
       {isAuthenticated && <Navbar />}
@@ -108,14 +48,12 @@ const AppContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => {
-  return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
-  );
-};
+const App: React.FC = () => (
+  <AuthProvider>
+    <Router>
+      <AppContent />
+    </Router>
+  </AuthProvider>
+);
 
 export default App;

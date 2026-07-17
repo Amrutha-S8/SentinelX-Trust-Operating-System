@@ -158,15 +158,13 @@ class ApprovalController {
         return res.status(404).json({ error: 'Approval request not found' });
       }
 
-      // Verify requester is an existing approver or admin
       const isApprover = request.approvers?.some(
         (a: any) => a.userId?.toString() === user._id.toString()
       );
       if (!isApprover && user.role !== 'admin') {
-        return res.status(403).json({ error: 'Only existing approvers can delegate' });
+        return res.status(403).json({ error: 'Only existing approvers or admins can delegate' });
       }
 
-      // Add delegate as new approver
       if (!request.approvers) request.approvers = [];
       request.approvers.push({
         userId: new mongoose.Types.ObjectId(delegateToUserId),
@@ -174,19 +172,17 @@ class ApprovalController {
         delegatedBy: user._id,
         delegatedReason: reason,
         addedAt: new Date(),
-      });
+      } as any);
 
-      // Log the delegation
       if (!request.escalations) request.escalations = [];
       request.escalations.push({
         level: 1,
         escalatedTo: [new mongoose.Types.ObjectId(delegateToUserId)],
         reason: `Delegated by ${user.email}: ${reason}`,
         escalatedAt: new Date(),
-      });
+      } as any);
 
       await (request as any).save();
-
       res.json({ message: 'Request delegated successfully', request });
     } catch (error) {
       next(error);
