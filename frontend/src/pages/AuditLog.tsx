@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auditAPI } from '@/api/client';
 import { AuditLogTable } from '@/components/AuditLogTable';
+import { TrustExplanation } from '@/components/TrustExplanation';
 
 // SHA-256 fingerprint via browser SubtleCrypto — no external dependency needed
 async function sha256Hex(text: string): Promise<string> {
@@ -236,6 +237,13 @@ export const AuditLog: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* XAI Explanation */}
+                  {selectedLog.xaiExplanation && (
+                    <div className="pt-4 border-t border-gray-200">
+                      <TrustExplanation xaiExplanation={selectedLog.xaiExplanation} />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

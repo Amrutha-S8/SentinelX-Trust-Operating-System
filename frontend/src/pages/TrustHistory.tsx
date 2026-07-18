@@ -122,6 +122,7 @@ export const TrustHistory: React.FC = () => {
 
                     {selectedLog.explanation && (
                       <TrustExplanation
+                        xaiExplanation={selectedLog.xaiExplanation}
                         factors={selectedLog.factors || []}
                         explanation={selectedLog.explanation}
                         confidenceScore={selectedLog.confidenceScore || 85}

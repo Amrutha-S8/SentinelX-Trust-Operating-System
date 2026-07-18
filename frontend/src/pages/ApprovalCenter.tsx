@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApprovals } from '@/hooks/useApprovals';
+import { TrustExplanation } from '@/components/TrustExplanation';
 import { format } from 'date-fns';
 
 export const ApprovalCenter: React.FC = () => {
@@ -111,6 +112,13 @@ export const ApprovalCenter: React.FC = () => {
                           <pre className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
                             {JSON.stringify(request.actionDetails, null, 2)}
                           </pre>
+                        </div>
+                      )}
+
+                      {request.xaiExplanation && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Requester's Trust Explanation:</p>
+                          <TrustExplanation xaiExplanation={request.xaiExplanation} />
                         </div>
                       )}
 

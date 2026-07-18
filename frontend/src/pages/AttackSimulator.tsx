@@ -27,6 +27,16 @@ export const AttackSimulator: React.FC = () => {
       description: 'Test MFA bypass through user fatigue with repeated push notifications',
       icon: '📲',
     },
+    'phishing': {
+      title: 'Phishing Attack',
+      description: 'Test detection of phishing attacks with malicious indicators',
+      icon: '🎣',
+    },
+    'session-hijack': {
+      title: 'Session Hijacking',
+      description: 'Simulate unauthorized session takeover from unusual IPs',
+      icon: '🔓',
+    },
   };
 
   const runSimulation = async (type: string, params: any) => {
@@ -52,6 +62,12 @@ export const AttackSimulator: React.FC = () => {
           break;
         case 'mfa-fatigue':
           response = await simulatorAPI.simulateMFAFatigue(params.pushNotifications);
+          break;
+        case 'phishing':
+          response = await simulatorAPI.simulatePhishing(params.phishingIndicators);
+          break;
+        case 'session-hijack':
+          response = await simulatorAPI.simulateSessionHijack(params.newIpAddress, params.newUserAgent);
           break;
       }
       setResults(response?.data);
@@ -211,6 +227,94 @@ export const AttackSimulator: React.FC = () => {
     );
   };
 
+  const PhishingForm = () => {
+    const [indicators, setIndicators] = useState<string[]>(['unusual-domain', 'no-https']);
+
+    const indicatorOptions = [
+      { value: 'unusual-domain', label: 'Unusual Domain' },
+      { value: 'misspelled-url', label: 'Misspelled URL' },
+      { value: 'no-https', label: 'No HTTPS' },
+      { value: 'different-login-page', label: 'Different Login Page' },
+    ];
+
+    const toggleIndicator = (value: string) => {
+      setIndicators(prev =>
+        prev.includes(value) ? prev.filter(i => i !== value) : [...prev, value]
+      );
+    };
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Select Phishing Indicators
+          </label>
+          <div className="space-y-2">
+            {indicatorOptions.map(option => (
+              <label key={option.value} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={indicators.includes(option.value)}
+                  onChange={() => toggleIndicator(option.value)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={() => runSimulation('phishing', { phishingIndicators: indicators })}
+          disabled={loading}
+          className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+        >
+          {loading ? 'Running...' : 'Simulate Phishing Attack'}
+        </button>
+      </div>
+    );
+  };
+
+  const SessionHijackForm = () => {
+    const [newIpAddress, setNewIpAddress] = useState('203.0.113.45');
+    const [newUserAgent, setNewUserAgent] = useState('Mozilla/5.0 (X11; Linux x86_64)');
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Attacker IP Address
+          </label>
+          <input
+            type="text"
+            value={newIpAddress}
+            onChange={(e) => setNewIpAddress(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="203.0.113.45"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Attacker User-Agent
+          </label>
+          <input
+            type="text"
+            value={newUserAgent}
+            onChange={(e) => setNewUserAgent(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="Mozilla/5.0..."
+          />
+        </div>
+        <button
+          onClick={() => runSimulation('session-hijack', { newIpAddress, newUserAgent })}
+          disabled={loading}
+          className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+        >
+          {loading ? 'Running...' : 'Simulate Session Hijacking'}
+        </button>
+      </div>
+    );
+  };
+
   const renderForm = () => {
     switch (activeTab) {
       case 'sim-swap':
@@ -221,6 +325,10 @@ export const AttackSimulator: React.FC = () => {
         return <CredentialStuffingForm />;
       case 'mfa-fatigue':
         return <MFAFatigueForm />;
+      case 'phishing':
+        return <PhishingForm />;
+      case 'session-hijack':
+        return <SessionHijackForm />;
       default:
         return null;
     }
