@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { TrustService } from '../services/trust.service';
 import { BehavioralService, BehavioralData } from '../services/behavioral.service';
+import { ExplainableAIService } from '../services/explainableAI.service';
 import { extractContext, calculateDistance, calculateVelocity } from '../utils/contextExtractor';
 import User from '../models/User';
 import TrustLog from '../models/TrustLog';
@@ -67,12 +68,25 @@ class TrustController {
         actionRisk || 'medium'
       );
 
-      // Create trust log
+      // Generate XAI explanation
+      const xaiExplanation = ExplainableAIService.generateExplanation(
+        context,
+        evaluation.trustScore,
+        evaluation.riskLevel,
+        evaluation.decision,
+        evaluation.factors,
+        evaluation.behavioralScore,
+        authMethods,
+        evaluation.confidenceScore
+      );
+
+      // Create trust log with XAI explanation
       const trustLog = await TrustLog.create({
         userId: user._id,
         action,
         trustScore: evaluation.trustScore,
         riskLevel: evaluation.riskLevel,
+        xaiExplanation,
         contextData: context,
         behavioralScore: evaluation.behavioralScore,
         behavioralSignals: {
@@ -134,6 +148,7 @@ class TrustController {
         explanation: evaluation.explanation,
         confidenceScore: evaluation.confidenceScore,
         factors: evaluation.factors,
+        xaiExplanation,
         logId: trustLog._id,
       });
     } catch (error) {
@@ -452,6 +467,85 @@ class TrustController {
         .limit(20);
 
       res.json({ anomalies });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Explain a trust decision (generate XAI)
+  async explainDecision(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = (req as any).user;
+      const { logId, actionType } = req.body;
+
+      let trustLog;
+      if (logId) {
+        trustLog = await TrustLog.findById(logId);
+        if (!trustLog || trustLog.userId.toString() !== user._id.toString()) {
+          return res.status(404).json({ error: 'Trust log not found' });
+        }
+      } else {
+        // Get most recent trust log
+        trustLog = await TrustLog.findOne({ userId: user._id }).sort({ timestamp: -1 });
+        if (!trustLog) {
+          return res.status(404).json({ error: 'No trust history found' });
+        }
+      }
+
+      // If already has XAI explanation, return it
+      if (trustLog.xaiExplanation) {
+        return res.json({ xaiExplanation: trustLog.xaiExplanation });
+      }
+
+      // Generate XAI explanation from stored data
+      const xaiExplanation = ExplainableAIService.generateExplanation(
+        trustLog.contextData as any,
+        trustLog.trustScore,
+        trustLog.riskLevel,
+        trustLog.decision,
+        trustLog.factors as any,
+        trustLog.behavioralScore,
+        trustLog.authMethodsUsed,
+        trustLog.confidenceScore
+      );
+
+      // Store in trust log
+      trustLog.xaiExplanation = xaiExplanation;
+      await trustLog.save();
+
+      res.json({ xaiExplanation });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get stored XAI explanation by log ID
+  async getExplanation(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = (req as any).user;
+      const { logId } = req.params;
+
+      const trustLog = await TrustLog.findById(logId);
+      if (!trustLog || trustLog.userId.toString() !== user._id.toString()) {
+        return res.status(404).json({ error: 'Trust log not found' });
+      }
+
+      if (!trustLog.xaiExplanation) {
+        // Generate on-the-fly if not stored
+        const xaiExplanation = ExplainableAIService.generateExplanation(
+          trustLog.contextData as any,
+          trustLog.trustScore,
+          trustLog.riskLevel,
+          trustLog.decision,
+          trustLog.factors as any,
+          trustLog.behavioralScore,
+          trustLog.authMethodsUsed,
+          trustLog.confidenceScore
+        );
+        return res.json({ xaiExplanation });
+      }
+
+      res.json({ xaiExplanation: trustLog.xaiExplanation });
     } catch (error) {
       next(error);
     }

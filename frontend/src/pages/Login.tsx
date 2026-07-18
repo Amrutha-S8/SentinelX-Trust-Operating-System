@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { TrustExplanation, XAIExplanation } from '@/components/TrustExplanation';
 
 interface BlockReason {
   factor: string;
@@ -40,6 +41,7 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [xaiExplanation, setXaiExplanation] = useState<XAIExplanation | null>(null);
   const [blockReasons, setBlockReasons] = useState<BlockReason[]>([]);
   const [showWhyBlocked, setShowWhyBlocked] = useState(false);
   const { login } = useAuth();
@@ -58,18 +60,13 @@ export const Login: React.FC = () => {
     } catch (err: any) {
       const msg: string = err.response?.data?.error || 'Login failed';
       setError(msg);
-
-      const status = err.response?.status;
-      const isBlocked =
-        status === 403 ||
-        msg.toLowerCase().includes('block') ||
-        msg.toLowerCase().includes('denied') ||
-        msg.toLowerCase().includes('trust') ||
-        msg.toLowerCase().includes('access');
-
-      if (isBlocked) {
-        const code = err.response?.data?.blockReason ?? 'default';
-        setBlockReasons(BLOCK_EXPLANATIONS[code] ?? BLOCK_EXPLANATIONS['default']);
+      
+      // Surface XAI explanation if provided
+      if (err.response?.data?.xaiExplanation) {
+        setXaiExplanation(err.response.data.xaiExplanation);
+      } else if (err.response?.status === 403 || msg.toLowerCase().includes('block') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('trust')) {
+        const code = err.response?.data?.blockReason || 'default';
+        setBlockReasons(BLOCK_EXPLANATIONS[code] || BLOCK_EXPLANATIONS['default']);
       }
     } finally {
       setLoading(false);
@@ -95,8 +92,15 @@ export const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* Error banner */}
-            {error && (
+            {/* XAI Explanation panel (new) */}
+            {xaiExplanation && (
+              <div className="mb-4">
+                <TrustExplanation xaiExplanation={xaiExplanation} />
+              </div>
+            )}
+
+            {/* Error banner (legacy fallback) */}
+            {error && !xaiExplanation && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 <div>{error}</div>
                 {blockReasons.length > 0 && (
@@ -111,7 +115,7 @@ export const Login: React.FC = () => {
               </div>
             )}
 
-            {/* ── Why Was I Blocked — explainability panel ── */}
+            {/* ── Why Was I Blocked — explainability panel (legacy fallback) ── */}
             {showWhyBlocked && blockReasons.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
                 <div className="text-sm font-semibold text-amber-900">

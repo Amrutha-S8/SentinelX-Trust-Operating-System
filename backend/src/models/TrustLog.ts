@@ -1,11 +1,36 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface ExplanationReason {
+  type: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  description: string;
+  confidence: number;
+  recommendation: string;
+  evidence?: string;
+}
+
+export interface XAIExplanation {
+  decision: 'allow' | 'deny' | 'step-up' | 'approval-required';
+  trustScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  confidence: number;
+  reasons: ExplanationReason[];
+  summary: string;
+  recommendations: string[];
+  actionDetails: {
+    nextStep: string;
+    estimatedWaitTime?: string;
+    escalationPath?: string;
+  };
+}
+
 export interface ITrustLog extends Document {
   userId: mongoose.Types.ObjectId;
   timestamp: Date;
   action: string;
   trustScore: number;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  xaiExplanation?: XAIExplanation;
   contextData: {
     device: {
       fingerprint: string;
@@ -90,6 +115,30 @@ const TrustLogSchema = new Schema<ITrustLog>({
     enum: ['low', 'medium', 'high', 'critical'],
     required: true,
     index: true
+  },
+  xaiExplanation: {
+    decision: {
+      type: String,
+      enum: ['allow', 'deny', 'step-up', 'approval-required']
+    },
+    trustScore: { type: Number, min: 0, max: 100 },
+    riskLevel: { type: String, enum: ['low', 'medium', 'high', 'critical'] },
+    confidence: { type: Number, min: 0, max: 100 },
+    reasons: [{
+      type: { type: String, required: true },
+      severity: { type: String, enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], required: true },
+      description: { type: String, required: true },
+      confidence: { type: Number, min: 0, max: 100, required: true },
+      recommendation: { type: String, required: true },
+      evidence: { type: String }
+    }],
+    summary: { type: String },
+    recommendations: [{ type: String }],
+    actionDetails: {
+      nextStep: { type: String },
+      estimatedWaitTime: { type: String },
+      escalationPath: { type: String }
+    }
   },
   contextData: {
     device: {

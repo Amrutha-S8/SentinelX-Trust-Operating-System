@@ -73,6 +73,10 @@ export const trustAPI = {
     apiClient.get('/trust/history', { params: { limit, skip } }),
   getTrends: (days?: number) => apiClient.get('/trust/analytics/trends', { params: { days } }),
   getAlerts: () => apiClient.get('/trust/risk/alerts'),
+  explain: (logId?: string, actionType?: string) =>
+    apiClient.post('/trust/explain', { logId, actionType }),
+  getExplanation: (logId: string) =>
+    apiClient.get(`/trust/explain/${logId}`),
 };
 
 // Approval API

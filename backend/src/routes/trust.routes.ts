@@ -10,6 +10,10 @@ router.get('/score', authenticate, trustController.getCurrentScore);
 router.get('/history', authenticate, trustController.getTrustHistory);
 router.get('/history/:logId', authenticate, trustController.getTrustLogDetails);
 
+// XAI explanation
+router.post('/explain', authenticate, trustController.explainDecision);
+router.get('/explain/:logId', authenticate, trustController.getExplanation);
+
 // Context data
 router.post('/context/capture', authenticate, trustController.captureContext);
 router.get('/context/current', authenticate, trustController.getCurrentContext);
